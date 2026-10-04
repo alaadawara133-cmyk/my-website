@@ -1,130 +1,502 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>لوحتي</title>
-<script src="https://telegram.org/js/telegram-web-app.js"></script>
-<style>
-* { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui; }
-body { background: #17212b; color: #fff; padding: 15px; }
-h1 { font-size: 20px; margin-bottom: 15px; text-align: center; }
-.tabs { display: flex; gap: 8px; margin-bottom: 15px; }
-.tab { flex: 1; padding: 10px; background: #232e3c; border: none; color: #fff; border-radius: 8px; cursor: pointer; font-size: 14px; }
-.tab.active { background: #2ea6ff; }
-.panel { display: none; }
-.panel.active { display: block; }
-canvas { background: #fff; border-radius: 10px; width: 100%; touch-action: none; cursor: crosshair; }
-.tools { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
-.tools input[type="color"] { width: 45px; height: 40px; border: none; border-radius: 8px; }
-.tools button { padding: 8px 14px; background: #2ea6ff; border: none; color: #fff; border-radius: 8px; cursor: pointer; }
-.input-row { display: flex; gap: 8px; margin-bottom: 12px; }
-.input-row input { flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #2f3b4a; background: #232e3c; color: #fff; }
-.input-row button { padding: 10px 18px; background: #2ea6ff; border: none; color: #fff; border-radius: 8px; cursor: pointer; }
-.list-item { background: #232e3c; padding: 12px; border-radius: 8px; margin-bottom: 8px; display: flex; justify-content: space-between; }
-.list-item button { background: #e74c3c; border: none; color: #fff; padding: 5px 10px; border-radius: 6px; cursor: pointer; }
-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-th, td { border: 1px solid #2f3b4a; padding: 8px; text-align: right; font-size: 14px; }
-th { background: #2ea6ff; }
-td { background: #232e3c; }
-td[contenteditable="true"]:focus { background: #2f3b4a; outline: none; }
-.add-row { margin-top: 10px; padding: 8px 16px; background: #27ae60; border: none; color: #fff; border-radius: 8px; cursor: pointer; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تطبيق إدارة تشطيبات الموقع (منصة المشرف)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap');
+        
+        :root {
+            --bg-dark: #0f172a;
+            --bg-panel: #1e293b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            
+            /* ألوان البنود المستوحاة من صور المستخدم */
+            --color-paint: #fba15a;    /* دهان */
+            --color-core: #8696a7;     /* كاروت */
+            --color-hvac: #5da9e9;     /* تهوية */
+            --color-smith: #e35d3d;    /* حداد */
+            --color-epoxy: #59b66d;    /* إيبوكسي */
+            --color-dry: #6b8c6f;      /* تجفيف */
+            --color-clean: #eab308;    /* تنظيف */
+            --color-check: #a855f7;    /* فحص */
+        }
+
+        body {
+            font-family: 'Tajawal', sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+        }
+
+        /* تنسيقات الجدول الزمني */
+        .timeline-grid {
+            background-size: calc(100% / 12) 100%;
+            background-image: linear-gradient(to right, rgba(255,255,255,0.05) 1px, transparent 1px);
+        }
+        
+        .task-bar {
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        .task-bar:hover {
+            filter: brightness(1.1);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+        }
+
+        /* تنسيقات الرسم على المخطط */
+        #canvas-container {
+            position: relative;
+            background-color: #2a2a29;
+            border: 4px solid #d49a6a;
+            border-radius: 8px;
+            overflow: hidden;
+            cursor: crosshair;
+        }
+
+        .draw-marker {
+            position: absolute;
+            transform: translate(-50%, -50%);
+        }
+        .marker-core {
+            width: 30px;
+            height: 30px;
+            border: 2px dashed #f8fafc;
+            background-color: rgba(134, 150, 167, 0.5);
+            border-radius: 50%;
+        }
+        .marker-wall {
+            height: 8px;
+            background-color: #f8fafc;
+            border-radius: 4px;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: var(--bg-dark); }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+    </style>
 </head>
-<body>
-<h1>🎨 لوحتي</h1>
-<div class="tabs">
-<button class="tab active" data-tab="draw">✏️ رسم</button>
-<button class="tab" data-tab="names">👥 أسماء</button>
-<button class="tab" data-tab="table">📊 جدول</button>
-</div>
-<div class="panel active" id="draw">
-<div class="tools">
-<input type="color" id="color" value="#2ea6ff">
-<input type="range" id="size" min="1" max="30" value="4">
-<button onclick="clearCanvas()">🗑️ مسح</button>
-</div>
-<canvas id="canvas"></canvas>
-</div>
-<div class="panel" id="names">
-<div class="input-row">
-<input type="text" id="nameInput" placeholder="اكتب اسماً...">
-<button onclick="addName()">إضافة</button>
-</div>
-<div id="namesList"></div>
-</div>
-<div class="panel" id="table">
-<table id="myTable">
-<thead><tr><th>الاسم</th><th>العمر</th><th>المدينة</th></tr></thead>
-<tbody><tr><td contenteditable="true">أحمد</td><td contenteditable="true">25</td><td contenteditable="true">إسطنبول</td></tr></tbody>
-</table>
-<button class="add-row" onclick="addRow()">+ إضافة صف</button>
-</div>
-<script>
-const tg = window.Telegram?.WebApp;
-if (tg) { tg.ready(); tg.expand(); tg.setHeaderColor('#17212b'); }
-document.querySelectorAll('.tab').forEach(tab => {
-tab.onclick = () => {
-document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-tab.classList.add('active');
-document.getElementById(tab.dataset.tab).classList.add('active');
-};
-});
-const canvas = document.getElementById('canvas');
-const ctx = canvas.getContext('2d');
-let drawing = false;
-function resizeCanvas() {
-const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
-canvas.width = canvas.offsetWidth;
-canvas.height = 400;
-ctx.putImageData(img, 0, 0);
-}
-resizeCanvas();
-function getPos(e) {
-const rect = canvas.getBoundingClientRect();
-const p = e.touches ? e.touches[0] : e;
-return { x: p.clientX - rect.left, y: p.clientY - rect.top };
-}
-canvas.addEventListener('pointerdown', e => {
-drawing = true;
-const pos = getPos(e);
-ctx.beginPath();
-ctx.moveTo(pos.x, pos.y);
-});
-canvas.addEventListener('pointermove', e => {
-if (!drawing) return;
-const pos = getPos(e);
-ctx.strokeStyle = document.getElementById('color').value;
-ctx.lineWidth = document.getElementById('size').value;
-ctx.lineCap = 'round';
-ctx.lineTo(pos.x, pos.y);
-ctx.stroke();
-});
-canvas.addEventListener('pointerup', () => drawing = false);
-canvas.addEventListener('pointerleave', () => drawing = false);
-function clearCanvas() { ctx.clearRect(0, 0, canvas.width, canvas.height); }
-let names = JSON.parse(localStorage.getItem('names') || '[]');
-function renderNames() {
-const list = document.getElementById('namesList');
-list.innerHTML = names.map((n, i) =>
-`<div class="list-item"><span>${n}</span><button onclick="removeName(${i})">حذف</button></div>`
-).join('');
-localStorage.setItem('names', JSON.stringify(names));
-}
-function addName() {
-const inp = document.getElementById('nameInput');
-if (inp.value.trim()) { names.push(inp.value.trim()); inp.value = ''; renderNames(); }
-}
-function removeName(i) { names.splice(i, 1); renderNames(); }
-document.getElementById('nameInput').addEventListener('keypress', e => { if (e.key === 'Enter') addName(); });
-renderNames();
-function addRow() {
-const tbody = document.querySelector('#myTable tbody');
-const row = document.createElement('tr');
-row.innerHTML = '<td contenteditable="true"></td><td contenteditable="true"></td><td contenteditable="true"></td>';
-tbody.appendChild(row);
-}
-</script>
+<body class="h-screen flex flex-col overflow-hidden">
+
+    <header class="bg-slate-900 border-b border-slate-700 p-4 flex justify-between items-center shrink-0">
+        <div class="flex items-center gap-3">
+            <i class="fas fa-hard-hat text-orange-500 text-2xl"></i>
+            <div>
+                <h1 class="font-bold text-xl">إدارة الموقع - فيلا 105</h1>
+                <p class="text-xs text-slate-400">المشرف: م. أحمد | الموعد النهائي: 15 الشهر</p>
+            </div>
+        </div>
+        <div class="flex gap-4">
+            <button onclick="shareLink()" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition">
+                <i class="fab fa-telegram-plane"></i>
+                مشاركة الرابط
+            </button>
+            <button class="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg text-sm transition">
+                <i class="fas fa-bell"></i>
+                <span class="bg-red-500 text-xs rounded-full w-5 h-5 inline-flex items-center justify-center mr-1">2</span>
+            </button>
+        </div>
+    </header>
+
+    <div class="bg-slate-800 p-2 flex justify-center gap-2 shrink-0 border-b border-slate-700 overflow-x-auto">
+        <button onclick="switchTab('tab-map')" id="btn-map" class="tab-btn px-6 py-2 rounded-md bg-slate-700 text-white font-bold transition">مخطط الموقع</button>
+        <button onclick="switchTab('tab-daily')" id="btn-daily" class="tab-btn px-6 py-2 rounded-md bg-transparent text-slate-400 hover:bg-slate-700 transition">الجدول اليومي</button>
+        <button onclick="switchTab('tab-weekly')" id="btn-weekly" class="tab-btn px-6 py-2 rounded-md bg-transparent text-slate-400 hover:bg-slate-700 transition">الأسبوع كامل</button>
+        <button onclick="switchTab('tab-tasks')" id="btn-tasks" class="tab-btn px-6 py-2 rounded-md bg-transparent text-slate-400 hover:bg-slate-700 transition">إضافة مهام</button>
+    </div>
+
+    <!-- المحتوى الرئيسي -->
+    <main class="flex-1 overflow-y-auto p-4 md:p-6 relative">
+
+        <section id="tab-map" class="tab-content h-full flex flex-col items-center">
+            <h2 class="text-2xl font-bold mb-4">مخطط الموقع التفاعلي</h2>
+            <p class="text-slate-400 mb-4 text-center">اضغط على المخطط لإضافة علامات توضيحية للمقاولين.</p>
+            
+            <!-- أدوات الرسم -->
+            <div class="flex gap-4 mb-4 bg-slate-800 p-2 rounded-lg">
+                <button onclick="setDrawMode('core')" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded flex items-center gap-2 border-2 border-transparent focus:border-orange-500" id="tool-core">
+                    <div class="w-4 h-4 border-2 border-white border-dashed rounded-full"></div> حفر كاروت
+                </button>
+                <button onclick="setDrawMode('wall')" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded flex items-center gap-2 border-2 border-transparent focus:border-orange-500" id="tool-wall">
+                    <div class="w-4 h-2 bg-white rounded-sm"></div> بناء جدار
+                </button>
+                <button onclick="clearMap()" class="px-4 py-2 bg-red-900/50 text-red-400 hover:bg-red-800 rounded flex items-center gap-2">
+                    <i class="fas fa-trash"></i> مسح المخطط
+                </button>
+            </div>
+
+            <!-- لوحة الرسم -->
+            <div id="canvas-container" class="w-full max-w-3xl h-[400px]" onclick="addMarker(event)">
+                <!-- تقسيمات الغرف الوهمية كخلفية -->
+                <div class="absolute inset-0 grid grid-cols-2 grid-rows-2">
+                    <div class="border-b border-l border-[#d49a6a] p-4 text-slate-500 flex justify-center items-center">صالة</div>
+                    <div class="border-b border-r border-[#d49a6a] p-4 text-slate-500 flex justify-center items-center">مطبخ</div>
+                    <div class="border-t border-l border-[#d49a6a] p-4 text-slate-500 flex justify-center items-center">غرفة</div>
+                    <div class="border-t border-r border-[#d49a6a] p-4 text-slate-500 flex justify-center items-center">حمام</div>
+                </div>
+            </div>
+        </section>
+
+        <section id="tab-daily" class="tab-content hidden h-full max-w-5xl mx-auto">
+            <h2 class="text-2xl font-bold mb-6 text-center">الجدول الزمني لليوم (الإثنين)</h2>
+            
+            <div class="bg-[#1a2332] rounded-xl p-6 border border-slate-700">
+                <!-- شريط الساعات -->
+                <div class="flex justify-between text-slate-400 text-sm mb-4 font-bold px-[150px] relative">
+                    <span>07:00</span>
+                    <span>09:00</span>
+                    <span>11:00</span>
+                    <span>13:00</span>
+                    <span>15:00</span>
+                    <span>17:00</span>
+                    <span>19:00</span>
+                    <!-- خط الزمن الحالي الوهمي -->
+                    <div class="absolute right-[5%] top-4 bottom-[-400px] w-0.5 bg-red-500 z-10"></div>
+                    <div class="absolute right-[5%] top-2 w-3 h-3 bg-red-500 rounded-full z-10 translate-x-1/2"></div>
+                </div>
+
+                <!-- مساحة المهام -->
+                <div class="timeline-grid relative w-full h-auto py-2" id="daily-timeline-container">
+                    <!-- سيتم حقن المهام هنا بواسطة الجافاسكريبت -->
+                </div>
+            </div>
+            <div class="mt-4 flex flex-wrap gap-4 justify-center text-sm">
+                <span class="flex items-center gap-2"><div class="w-3 h-3 rounded bg-[var(--color-paint)]"></div> دهان</span>
+                <span class="flex items-center gap-2"><div class="w-3 h-3 rounded bg-[var(--color-core)]"></div> حفر كاروت</span>
+                <span class="flex items-center gap-2"><div class="w-3 h-3 rounded bg-[var(--color-hvac)]"></div> تهوية</span>
+                <span class="flex items-center gap-2"><div class="w-3 h-3 rounded bg-[var(--color-smith)]"></div> حداد</span>
+                <span class="flex items-center gap-2"><div class="w-3 h-3 rounded bg-[var(--color-epoxy)]"></div> إيبوكسي</span>
+            </div>
+        </section>
+
+        <section id="tab-weekly" class="tab-content hidden h-full max-w-6xl mx-auto">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold">الأسبوع كامل (نظرة عامة)</h2>
+                <div class="text-sm text-slate-400">المخطط المقلم = وقت فائض (Buffer) أُنجز مبكراً</div>
+            </div>
+            
+            <div class="bg-[#1a2332] rounded-xl p-4 border border-slate-700 overflow-x-auto">
+                <table class="w-full text-center border-separate border-spacing-y-2 border-spacing-x-1">
+                    <thead>
+                        <tr class="text-slate-300">
+                            <th class="pb-4 w-32">البند</th>
+                            <th class="pb-4">الاثنين</th>
+                            <th class="pb-4">الثلاثاء</th>
+                            <th class="pb-4">الأربعاء</th>
+                            <th class="pb-4 border-b-2 border-blue-500">الخميس (اليوم)</th>
+                            <th class="pb-4">الجمعة</th>
+                            <th class="pb-4">السبت</th>
+                        </tr>
+                    </thead>
+                    <tbody id="weekly-tbody">
+                        <!-- يتم التوليد بالبرمجة -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section id="tab-tasks" class="tab-content hidden max-w-4xl mx-auto">
+            <div class="bg-slate-800 rounded-xl p-6 shadow-xl border border-slate-700">
+                <h2 class="text-xl font-bold mb-4 border-b border-slate-700 pb-2">إضافة بند جديد للخطة</h2>
+                
+                <form id="taskForm" class="grid grid-cols-1 md:grid-cols-2 gap-4" onsubmit="addTask(event)">
+                    <div>
+                        <label class="block text-sm text-slate-400 mb-1">اسم البند / المهمة</label>
+                        <input type="text" id="t-name" required class="w-full bg-slate-900 border border-slate-600 rounded p-2 text-white outline-none focus:border-blue-500" placeholder="مثال: تمديد السباكة">
+                    </div>
+                    <div>
+                        <label class="block text-sm text-slate-400 mb-1">اسم المقاول</label>
+                        <input type="text" id="t-contractor" required class="w-full bg-slate-900 border border-slate-600 rounded p-2 text-white outline-none focus:border-blue-500" placeholder="مثال: شركة الأمل">
+                    </div>
+                    <div>
+                        <label class="block text-sm text-slate-400 mb-1">تاريخ البداية (من)</label>
+                        <input type="date" id="t-start" required class="w-full bg-slate-900 border border-slate-600 rounded p-2 text-white outline-none focus:border-blue-500" value="2024-11-01">
+                    </div>
+                    <div>
+                        <label class="block text-sm text-slate-400 mb-1">الديدلاين (إلى)</label>
+                        <input type="date" id="t-end" required class="w-full bg-slate-900 border border-slate-600 rounded p-2 text-white outline-none focus:border-blue-500" value="2024-11-09">
+                    </div>
+                    <div>
+                        <label class="block text-sm text-slate-400 mb-1">لون المهمة</label>
+                        <select id="t-color" class="w-full bg-slate-900 border border-slate-600 rounded p-2 text-white outline-none focus:border-blue-500">
+                            <option value="var(--color-paint)">برتقالي (دهان)</option>
+                            <option value="var(--color-core)">رمادي (كاروت)</option>
+                            <option value="var(--color-hvac)">أزرق (تهوية)</option>
+                            <option value="var(--color-smith)">أحمر (حداد)</option>
+                            <option value="var(--color-epoxy)">أخضر (إيبوكسي)</option>
+                        </select>
+                    </div>
+                    <div class="flex items-end">
+                        <button type="submit" class="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-4 rounded transition">
+                            إضافة للجدول <i class="fas fa-plus mr-2"></i>
+                        </button>
+                    </div>
+                </form>
+
+                <!-- عرض المهام الحالية -->
+                <h3 class="text-lg font-bold mt-8 mb-4">المهام الحالية في النظام</h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-right text-sm">
+                        <thead class="bg-slate-700 text-slate-300">
+                            <tr>
+                                <th class="p-2 rounded-tr">المهمة</th>
+                                <th class="p-2">المقاول</th>
+                                <th class="p-2">البداية</th>
+                                <th class="p-2">النهاية</th>
+                                <th class="p-2">الحالة</th>
+                                <th class="p-2 rounded-tl">إجراء</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tasks-table-body" class="divide-y divide-slate-700">
+                            <!-- يضاف برمجياً -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <script>
+        // --- 1. إدارة التنقل بين التبويبات ---
+        function switchTab(tabId) {
+            // إخفاء كل المحتوى
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            // إظهار التبويب المطلوب
+            document.getElementById(tabId).classList.remove('hidden');
+            
+            // تغيير ستايل الأزرار
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('bg-slate-700', 'text-white');
+                btn.classList.add('bg-transparent', 'text-slate-400');
+            });
+            document.getElementById('btn-' + tabId.replace('tab-', '')).classList.add('bg-slate-700', 'text-white');
+            document.getElementById('btn-' + tabId.replace('tab-', '')).classList.remove('bg-transparent', 'text-slate-400');
+        }
+
+        // --- 2. بيانات المهام الافتراضية (كما طلب المستخدم) ---
+        let tasks = [
+            { id: 1, name: 'إنهاء دهان السقف والجدران', contractor: 'فريق الدهان', startHour: 7, endHour: 18, color: 'var(--color-paint)' },
+            { id: 2, name: 'حفر الكاروت', contractor: 'مقاول الكاروت', startHour: 10, endHour: 12, color: 'var(--color-core)' },
+            { id: 3, name: 'فك البوري والبوري الثاني فوق الخزانة', contractor: 'فني التهوية', startHour: 12, endHour: 13.5, color: 'var(--color-hvac)' },
+            { id: 4, name: 'تركيب الحديد كامل', contractor: 'الحداد', startHour: 13.5, endHour: 17, color: 'var(--color-smith)' },
+            { id: 5, name: 'دهان الإيبوكسي (استر) - منطقة المطبخ', contractor: 'فريق الإيبوكسي', startHour: 17, endHour: 19, color: 'var(--color-epoxy)' }
+        ];
+
+        let weeklyTasks = [
+            { name: 'دهان', color: 'var(--color-paint)', days: [1,1,0,0,0,0], early: false },
+            { name: 'حفر كاروت', color: 'var(--color-core)', days: [1,0,0,0,0,0], early: false },
+            { name: 'تهوية', color: 'var(--color-hvac)', days: [1,1,0,0,0,0], early: false },
+            { name: 'حداد', color: 'var(--color-smith)', days: [1,1,1,0,0,0], early: false },
+            { name: 'سباكة (مثال المستخدم)', color: '#3b82f6', days: [0,0,1,1,1,1], early: true }, // انتهى مبكراً!
+            { name: 'إيبوكسي', color: 'var(--color-epoxy)', days: [1,0,1,0,1,0], early: false },
+            { name: 'فحص وتسليم', color: 'var(--color-check)', days: [0,0,0,0,1,1], early: false }
+        ];
+
+        // --- 3. توليد الجدول اليومي (Timeline) ---
+        function renderDailyTimeline() {
+            const container = document.getElementById('daily-timeline-container');
+            container.innerHTML = '';
+            
+            // الساعات من 7 صباحاً إلى 19 مساءً (12 ساعة)
+            const dayStart = 7;
+            const dayEnd = 19;
+            const totalHours = dayEnd - dayStart;
+
+            tasks.forEach((task, index) => {
+                // حساب العرض والموضع بالنسبة المئوية
+                const leftPos = ((task.startHour - dayStart) / totalHours) * 100;
+                const width = ((task.endHour - task.startHour) / totalHours) * 100;
+                
+                // عكس الاتجاه لأننا RTL (اليمين هو البداية)
+                const rightPos = leftPos;
+
+                const row = document.createElement('div');
+                row.className = 'flex items-center mb-6 relative h-10 w-full';
+                
+                row.innerHTML = `
+                    <div class="absolute right-0 w-[140px] text-right font-bold text-sm pr-2 truncate" title="${task.name}">
+                        ${task.name}
+                        <div class="text-xs text-slate-400 font-normal">${formatTime(task.startHour)} - ${formatTime(task.endHour)}</div>
+                    </div>
+                    <div class="absolute right-[150px] left-0 h-full relative">
+                        <div class="task-bar absolute h-8 rounded-md flex items-center justify-center text-xs font-bold text-white overflow-hidden whitespace-nowrap px-2"
+                             style="right: ${rightPos}%; width: ${width}%; background-color: ${task.color}; top: 4px;"
+                             onclick="showTaskDetails('${task.name}', '${task.contractor}')">
+                        </div>
+                    </div>
+                `;
+                container.appendChild(row);
+            });
+        }
+
+        function formatTime(decimalHour) {
+            const h = Math.floor(decimalHour);
+            const m = Math.round((decimalHour - h) * 60);
+            return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+        }
+
+        function showTaskDetails(name, contractor) {
+            // يمكن استبدالها بـ Modal احترافي، ولكن كنموذج أولي نستخدم Custom Alert
+            const msg = document.createElement('div');
+            msg.className = 'fixed bottom-4 right-4 bg-slate-800 border-r-4 border-blue-500 p-4 rounded shadow-lg z-50 text-white font-bold animate-bounce';
+            msg.innerHTML = `المهمة: ${name}<br><span class="text-sm font-normal text-slate-300">المقاول: ${contractor}</span>`;
+            document.body.appendChild(msg);
+            setTimeout(() => msg.remove(), 3000);
+        }
+
+        // --- 4. توليد جدول الأسبوع (حل مشكلة الوقت الفائض) ---
+        function renderWeeklyTable() {
+            const tbody = document.getElementById('weekly-tbody');
+            tbody.innerHTML = '';
+
+            weeklyTasks.forEach(task => {
+                let tr = document.createElement('tr');
+                let tdName = `<td class="text-right pr-2 py-2 font-bold flex items-center gap-2">
+                                <div class="w-3 h-3 rounded" style="background-color: ${task.color}"></div>
+                                ${task.name}
+                              </td>`;
+                
+                let daysHtml = '';
+                task.days.forEach((isActive, idx) => {
+                    if(isActive) {
+                        // إذا كان البند منتهي مبكراً (كمثال السباكة)، نرسمه مخطط
+                        if(task.early && idx > 3) {
+                            daysHtml += `<td class="p-1"><div class="h-8 rounded opacity-50" style="background: repeating-linear-gradient(45deg, ${task.color}, ${task.color} 10px, transparent 10px, transparent 20px);">مكتمل مبكراً (Buffer)</div></td>`;
+                        } else {
+                            daysHtml += `<td class="p-1"><div class="h-8 rounded" style="background-color: ${task.color};"></div></td>`;
+                        }
+                    } else {
+                        daysHtml += `<td class="p-1"><div class="h-8 rounded bg-slate-800/50 border border-slate-700"></div></td>`;
+                    }
+                });
+
+                tr.innerHTML = tdName + daysHtml;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // --- 5. إدارة نموذج المهام ---
+        function addTask(e) {
+            e.preventDefault();
+            const name = document.getElementById('t-name').value;
+            const contractor = document.getElementById('t-contractor').value;
+            const start = document.getElementById('t-start').value;
+            const end = document.getElementById('t-end').value;
+            const color = document.getElementById('t-color').value;
+
+            // حساب التنبيه (مثال بسيط: قبل يومين من النهاية)
+            const endDate = new Date(end);
+            const today = new Date();
+            const timeDiff = endDate.getTime() - today.getTime();
+            const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
+            
+            let status = `<span class="bg-blue-900 text-blue-300 px-2 py-1 rounded text-xs">قيد العمل</span>`;
+            if (daysDiff <= 2 && daysDiff >= 0) {
+                status = `<span class="bg-red-900 text-red-300 px-2 py-1 rounded text-xs">اقترب الديدلاين!</span>`;
+            }
+
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td class="p-3 font-bold flex items-center gap-2">
+                    <div class="w-3 h-3 rounded-full" style="background-color: ${color}"></div> ${name}
+                </td>
+                <td class="p-3 text-slate-300">${contractor}</td>
+                <td class="p-3 text-slate-300">${start}</td>
+                <td class="p-3 font-bold text-white">${end}</td>
+                <td class="p-3">${status}</td>
+                <td class="p-3 text-center">
+                    <button class="text-red-400 hover:text-red-300" onclick="this.closest('tr').remove()"><i class="fas fa-trash"></i></button>
+                </td>
+            `;
+            document.getElementById('tasks-table-body').appendChild(tr);
+            document.getElementById('taskForm').reset();
+            
+            // إشعار للمشرف
+            showTaskDetails('تمت إضافة البند بنجاح', 'تمت جدولة المهام وتفعيل المنبه التلقائي.');
+        }
+
+        // إضافة بيانات أولية للجدول
+        window.onload = () => {
+            renderDailyTimeline();
+            renderWeeklyTable();
+            
+            // محاكاة إضافة البند الخاص بالاستفسار
+            document.getElementById('tasks-table-body').innerHTML = `
+                <tr>
+                    <td class="p-3 font-bold flex items-center gap-2"><div class="w-3 h-3 rounded-full bg-blue-500"></div> تمديد السباكة</td>
+                    <td class="p-3 text-slate-300">الشركة الوطنية</td>
+                    <td class="p-3 text-slate-300">2024-11-01</td>
+                    <td class="p-3 font-bold text-white">2024-11-09</td>
+                    <td class="p-3"><span class="bg-green-900 text-green-300 px-2 py-1 rounded text-xs">مكتمل مبكراً!</span></td>
+                    <td class="p-3 text-center"><button class="text-slate-500"><i class="fas fa-lock"></i></button></td>
+                </tr>
+            `;
+        }
+
+        // --- 6. نظام الرسم على المخطط ---
+        let currentDrawMode = null; // 'core' or 'wall'
+
+        function setDrawMode(mode) {
+            currentDrawMode = mode;
+            document.getElementById('tool-core').classList.remove('border-orange-500');
+            document.getElementById('tool-wall').classList.remove('border-orange-500');
+            document.getElementById('tool-' + mode).classList.add('border-orange-500');
+        }
+
+        function addMarker(e) {
+            if (!currentDrawMode) {
+                showTaskDetails('تنبيه', 'الرجاء اختيار أداة الرسم أولاً (كاروت أو جدار)');
+                return;
+            }
+
+            const container = document.getElementById('canvas-container');
+            const rect = container.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            const marker = document.createElement('div');
+            marker.className = `draw-marker marker-${currentDrawMode}`;
+            marker.style.left = `${x}px`;
+            marker.style.top = `${y}px`;
+
+            if (currentDrawMode === 'wall') {
+                // تدوير عشوائي أو تحديد طول للجدار (للتوضيح فقط)
+                marker.style.width = '100px';
+                marker.style.transform = `translate(-50%, -50%) rotate(${Math.random() > 0.5 ? 90 : 0}deg)`;
+            }
+
+            container.appendChild(marker);
+        }
+
+        function clearMap() {
+            const markers = document.querySelectorAll('.draw-marker');
+            markers.forEach(m => m.remove());
+            currentDrawMode = null;
+            document.getElementById('tool-core').classList.remove('border-orange-500');
+            document.getElementById('tool-wall').classList.remove('border-orange-500');
+        }
+
+        // --- 7. وظيفة المشاركة الوهمية ---
+        function shareLink() {
+            const dummyLink = "https://app.site-manager.com/view/project-105-secret-hash";
+            
+            // نسخ للـ Clipboard
+            const el = document.createElement('textarea');
+            el.value = dummyLink;
+            document.body.appendChild(el);
+            el.select();
+            document.execCommand('copy');
+            document.body.removeChild(el);
+
+            showTaskDetails('تم نسخ رابط المشاهدة!', 'يمكنك لصقه الآن في مجموعة التلغرام ليرى المقاولون الخطة.');
+        }
+
+    </script>
 </body>
 </html>
