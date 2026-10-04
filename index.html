@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>لوحتي</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui; }
+body { background: #17212b; color: #fff; padding: 15px; }
+h1 { font-size: 20px; margin-bottom: 15px; text-align: center; }
+.tabs { display: flex; gap: 8px; margin-bottom: 15px; }
+.tab { flex: 1; padding: 10px; background: #232e3c; border: none; color: #fff; border-radius: 8px; cursor: pointer; font-size: 14px; }
+.tab.active { background: #2ea6ff; }
+.panel { display: none; }
+.panel.active { display: block; }
+canvas { background: #fff; border-radius: 10px; width: 100%; touch-action: none; cursor: crosshair; }
+.tools { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+.tools input[type="color"] { width: 45px; height: 40px; border: none; border-radius: 8px; }
+.tools button { padding: 8px 14px; background: #2ea6ff; border: none; color: #fff; border-radius: 8px; cursor: pointer; }
+.input-row { display: flex; gap: 8px; margin-bottom: 12px; }
+.input-row input { flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #2f3b4a; background: #232e3c; color: #fff; }
+.input-row button { padding: 10px 18px; background: #2ea6ff; border: none; color: #fff; border-radius: 8px; cursor: pointer; }
+.list-item { background: #232e3c; padding: 12px; border-radius: 8px; margin-bottom: 8px; display: flex; justify-content: space-between; }
+.list-item button { background: #e74c3c; border: none; color: #fff; padding: 5px 10px; border-radius: 6px; cursor: pointer; }
+table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+th, td { border: 1px solid #2f3b4a; padding: 8px; text-align: right; font-size: 14px; }
+th { background: #2ea6ff; }
+td { background: #232e3c; }
+td[contenteditable="true"]:focus { background: #2f3b4a; outline: none; }
+.add-row { margin-top: 10px; padding: 8px 16px; background: #27ae60; border: none; color: #fff; border-radius: 8px; cursor: pointer; }
+</style>
+</head>
+<body>
+<h1>🎨 لوحتي</h1>
+<div class="tabs">
+<button class="tab active" data-tab="draw">✏️ رسم</button>
+<button class="tab" data-tab="names">👥 أسماء</button>
+<button class="tab" data-tab="table">📊 جدول</button>
+</div>
+<div class="panel active" id="draw">
+<div class="tools">
+<input type="color" id="color" value="#2ea6ff">
+<input type="range" id="size" min="1" max="30" value="4">
+<button onclick="clearCanvas()">🗑️ مسح</button>
+</div>
+<canvas id="canvas"></canvas>
+</div>
+<div class="panel" id="names">
+<div class="input-row">
+<input type="text" id="nameInput" placeholder="اكتب اسماً...">
+<button onclick="addName()">إضافة</button>
+</div>
+<div id="namesList"></div>
+</div>
+<div class="panel" id="table">
+<table id="myTable">
+<thead><tr><th>الاسم</th><th>العمر</th><th>المدينة</th></tr></thead>
+<tbody><tr><td contenteditable="true">أحمد</td><td contenteditable="true">25</td><td contenteditable="true">إسطنبول</td></tr></tbody>
+</table>
+<button class="add-row" onclick="addRow()">+ إضافة صف</button>
+</div>
+<script>
+const tg = window.Telegram?.WebApp;
+if (tg) { tg.ready(); tg.expand(); tg.setHeaderColor('#17212b'); }
+document.querySelectorAll('.tab').forEach(tab => {
+tab.onclick = () => {
+document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+tab.classList.add('active');
+document.getElementById(tab.dataset.tab).classList.add('active');
+};
+});
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+let drawing = false;
+function resizeCanvas() {
+const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+canvas.width = canvas.offsetWidth;
+canvas.height = 400;
+ctx.putImageData(img, 0, 0);
+}
+resizeCanvas();
+function getPos(e) {
+const rect = canvas.getBoundingClientRect();
+const p = e.touches ? e.touches[0] : e;
+return { x: p.clientX - rect.left, y: p.clientY - rect.top };
+}
+canvas.addEventListener('pointerdown', e => {
+drawing = true;
+const pos = getPos(e);
+ctx.beginPath();
+ctx.moveTo(pos.x, pos.y);
+});
+canvas.addEventListener('pointermove', e => {
+if (!drawing) return;
+const pos = getPos(e);
+ctx.strokeStyle = document.getElementById('color').value;
+ctx.lineWidth = document.getElementById('size').value;
+ctx.lineCap = 'round';
+ctx.lineTo(pos.x, pos.y);
+ctx.stroke();
+});
+canvas.addEventListener('pointerup', () => drawing = false);
+canvas.addEventListener('pointerleave', () => drawing = false);
+function clearCanvas() { ctx.clearRect(0, 0, canvas.width, canvas.height); }
+let names = JSON.parse(localStorage.getItem('names') || '[]');
+function renderNames() {
+const list = document.getElementById('namesList');
+list.innerHTML = names.map((n, i) =>
+`<div class="list-item"><span>${n}</span><button onclick="removeName(${i})">حذف</button></div>`
+).join('');
+localStorage.setItem('names', JSON.stringify(names));
+}
+function addName() {
+const inp = document.getElementById('nameInput');
+if (inp.value.trim()) { names.push(inp.value.trim()); inp.value = ''; renderNames(); }
+}
+function removeName(i) { names.splice(i, 1); renderNames(); }
+document.getElementById('nameInput').addEventListener('keypress', e => { if (e.key === 'Enter') addName(); });
+renderNames();
+function addRow() {
+const tbody = document.querySelector('#myTable tbody');
+const row = document.createElement('tr');
+row.innerHTML = '<td contenteditable="true"></td><td contenteditable="true"></td><td contenteditable="true"></td>';
+tbody.appendChild(row);
+}
+</script>
+</body>
+</html>
